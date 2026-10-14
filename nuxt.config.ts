@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@nuxt/eslint'],
   css: ['~/assets/css/main.css'],
   app: {
-    baseURL: '/pattern-visualiser/',
+    baseURL: '/pattern_visualiser/',
     head: {
       title: 'Pattern visualiser',
       meta: [
