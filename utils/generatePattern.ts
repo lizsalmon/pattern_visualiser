@@ -20,8 +20,8 @@ export interface PatternOption {
 export const PATTERN_OPTIONS: PatternOption[] = [
   { id: 'wave-left-right', label: 'Wave: Left → Right' },
   { id: 'wave-right-left', label: 'Wave: Right → Left' },
-  { id: 'wave-top-down', label: 'Wave: Top → Down' },
-  { id: 'wave-bottom-up', label: 'Wave: Bottom → Up' },
+  { id: 'wave-top-down', label: 'Wave: Top → Bottom' },
+  { id: 'wave-bottom-up', label: 'Wave: Bottom → Top' },
   { id: 'wave-diagonal-tl-br', label: 'Wave: Diagonal (Top-Left → Bottom-Right)' },
   { id: 'wave-diagonal-tr-bl', label: 'Wave: Diagonal (Top-Right → Bottom-Left)' },
   { id: 'bounce-horizontal', label: 'Bounce: Horizontal' },
