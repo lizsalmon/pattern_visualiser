@@ -7,8 +7,8 @@ import { generatePattern, PATTERN_OPTIONS, type PatternType } from '~/utils/gene
 // Inner array = that cell's value across frames (length num_frames), 0 or 1.
 const DEFAULT_ROWS = 9
 const DEFAULT_COLS = 28
-const DEFAULT_PATTERN: PatternType = 'wave-left-right'
-const DEFAULT_FPS = 2
+const DEFAULT_PATTERN: PatternType = 'straight-left-right'
+const DEFAULT_FPS = 10
 const MIN_FRAME_INTERVAL_MS = 50 // caps playback at 20fps, regardless of the fps field
 
 const rows = ref<number>(DEFAULT_ROWS)
