@@ -14,9 +14,13 @@ export type PatternType =
   | 'corner-curve'
   | 'corner-curve-ripple'
   | 'sine-wave'
+  | 'standing-wave'
+  | 'progressive-sine-wave'
   | 'corner-scatter'
-  | 'duck-swim'
-  | 'duck-swim-solo'
+  | 'duck-swim-small'
+  | 'duck-swim-small-solo'
+  | 'duck-swim-big'
+  | 'duck-swim-big-solo'
   | 'ball-bounce'
   | 'firework-bursts'
   | 'microbit-logo'
@@ -40,9 +44,13 @@ export const PATTERN_OPTIONS: PatternOption[] = [
   { id: 'corner-curve', label: 'Corner Curve' },
   { id: 'corner-curve-ripple', label: 'Corner Curve Ripple' },
   { id: 'sine-wave', label: 'Sine Wave' },
+  { id: 'standing-wave', label: 'Standing Wave' },
+  { id: 'progressive-sine-wave', label: 'Progressive Sine Wave' },
   { id: 'corner-scatter', label: 'Corner Scatter' },
-  { id: 'duck-swim', label: 'Duck Swim' },
-  { id: 'duck-swim-solo', label: 'Duck Swim (Solo)' },
+  { id: 'duck-swim-small', label: 'Duck Swim: Small' },
+  { id: 'duck-swim-small-solo', label: 'Duck Swim: Small (Solo)' },
+  { id: 'duck-swim-big', label: 'Duck Swim: Big' },
+  { id: 'duck-swim-big-solo', label: 'Duck Swim: Big (Solo)' },
   { id: 'ball-bounce', label: 'Ball Bounce' },
   { id: 'firework-bursts', label: 'Firework Bursts' },
   { id: 'microbit-logo', label: 'micro:bit Logo' },
@@ -90,12 +98,20 @@ function buildFrameSequence(type: PatternType, rows: number, cols: number): LitP
       return cornerCurveRipple(rows, cols)
     case 'sine-wave':
       return sineWave(rows, cols)
+    case 'standing-wave':
+      return standingWave(rows, cols)
+    case 'progressive-sine-wave':
+      return progressiveSineWave(rows, cols)
     case 'corner-scatter':
       return cornerScatter(rows, cols)
-    case 'duck-swim':
-      return duckSwim(rows, cols)
-    case 'duck-swim-solo':
-      return spriteSwim(rows, cols, DUCK_SPRITE)
+    case 'duck-swim-small':
+      return duckSwim(rows, cols, SMALL_DUCK_SPRITE)
+    case 'duck-swim-small-solo':
+      return spriteSwim(rows, cols, SMALL_DUCK_SPRITE)
+    case 'duck-swim-big':
+      return duckSwim(rows, cols, BIG_DUCK_SPRITE)
+    case 'duck-swim-big-solo':
+      return spriteSwim(rows, cols, BIG_DUCK_SPRITE)
     case 'ball-bounce':
       return ballBounce(rows, cols)
     case 'firework-bursts':
@@ -178,13 +194,61 @@ function sineWave(rows: number, cols: number): LitPredicate[] {
   })
 }
 
-// BBC micro:bit "duck" icon
-const DUCK_SPRITE: readonly (readonly number[])[] = [
+// Full sine curve held in place (not travelling sideways), with its amplitude breathing
+// from flat (a straight line) up to a full sine wave and back down again, then repeating the
+// same breath inverted (bulging the other way), before looping.
+function standingWave(rows: number, cols: number): LitPredicate[] {
+  return [...standingWaveHalf(rows, cols, 1), ...standingWaveHalf(rows, cols, -1)]
+}
+
+// One breath of the standing wave: straight line -> full sine wave (scaled by `direction`) ->
+// straight line again.
+function standingWaveHalf(rows: number, cols: number, direction: 1 | -1): LitPredicate[] {
+  const amplitude = (rows - 1) / 2
+  const centreRow = (rows - 1) / 2
+  const numFrames = Math.max(cols * 2, 2)
+  return sequence(numFrames, (f) => (row, col) => {
+    const angle = (col / Math.max(cols - 1, 1)) * 2 * Math.PI
+    const ampFactor = direction * Math.sin((Math.PI * f) / (numFrames - 1))
+    const targetRow = centreRow - amplitude * ampFactor * Math.sin(angle)
+    return row === Math.round(targetRow)
+  })
+}
+
+// Full sine curve held in place, built up one column at a time left-to-right (none lit, then
+// one cell, then two, etc.) until the whole wave is lit, then loops back to empty.
+function progressiveSineWave(rows: number, cols: number): LitPredicate[] {
+  const amplitude = (rows - 1) / 2
+  const centreRow = (rows - 1) / 2
+  const rowForCol = (col: number) => {
+    // Sample at the centre of each column's phase slot (rather than its leading edge) so the
+    // curve's steepest point doesn't land exactly on a row-rounding boundary and skip a row.
+    const angle = ((col + 0.5) / cols) * 2 * Math.PI
+    return Math.round(centreRow - amplitude * Math.sin(angle))
+  }
+  return sequence(cols + 1, (f) => (row, col) => {
+    if (col >= f) return false
+    return row === rowForCol(col)
+  })
+}
+
+// BBC micro:bit "duck" icon, in two sizes.
+const SMALL_DUCK_SPRITE: readonly (readonly number[])[] = [
   [0, 0, 1, 1, 0],
   [0, 0, 1, 1, 1],
   [1, 1, 1, 1, 0],
   [0, 1, 1, 1, 0],
   [0, 0, 0, 0, 0],
+]
+
+const BIG_DUCK_SPRITE: readonly (readonly number[])[] = [
+  [0, 0, 0, 0, 0, 1, 1, 0, 0],
+  [0, 0, 0, 0, 1, 1, 0, 1, 0],
+  [0, 0, 0, 0, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 0, 0],
+  [0, 1, 1, 1, 1, 1, 1, 0, 0],
+  [0, 0, 1, 1, 1, 1, 0, 0, 0],
+  [0, 0, 0, 0, 0, 0, 0, 0, 0],
 ]
 
 const DUCKLING_SPRITE: readonly (readonly number[])[] = [
@@ -196,39 +260,43 @@ const DUCK_FAMILY_GAP = -1 // columns between mother and first duckling
 const DUCKLING_GAP = 2 // columns between each duckling
 
 // Moves a sprite across the grid, fully off-screen to fully off-screen, vertically centred.
+// Sprites need not be square; height and width are measured independently.
 function spriteSwim(rows: number, cols: number, sprite: readonly (readonly number[])[]): LitPredicate[] {
-  const spriteSize = sprite.length
-  const rowOffset = Math.floor((rows - spriteSize) / 2)
-  return sequence(cols + spriteSize + 1, (f) => (row, col) => {
-    const colOffset = f - spriteSize
+  const spriteHeight = sprite.length
+  const spriteWidth = sprite[0]?.length ?? 0
+  const rowOffset = Math.floor((rows - spriteHeight) / 2)
+  return sequence(cols + spriteWidth + 1, (f) => (row, col) => {
+    const colOffset = f - spriteWidth
     const r = row - rowOffset
     const c = col - colOffset
-    if (r < 0 || r >= spriteSize || c < 0 || c >= spriteSize) return false
+    if (r < 0 || r >= spriteHeight || c < 0 || c >= spriteWidth) return false
     return sprite[r][c] === 1
   })
 }
 
 // Mother duck swims across with 3 ducklings trailing in a line.
-function duckSwim(rows: number, cols: number): LitPredicate[] {
-  const motherSize = DUCK_SPRITE.length
-  const babySize = DUCKLING_SPRITE.length
-  const motherRowOffset = Math.floor((rows - motherSize) / 2)
-  const babyRowOffset = Math.floor((rows - babySize) / 2) + 1
+function duckSwim(rows: number, cols: number, motherSprite: readonly (readonly number[])[]): LitPredicate[] {
+  const motherHeight = motherSprite.length
+  const motherWidth = motherSprite[0]?.length ?? 0
+  const babyHeight = DUCKLING_SPRITE.length
+  const babyWidth = DUCKLING_SPRITE[0]?.length ?? 0
+  const motherRowOffset = Math.floor((rows - motherHeight) / 2)
+  const babyRowOffset = Math.floor((rows - babyHeight) / 2) + 1
 
-  const lags = [1, 2, 3].map((i) => motherSize + DUCK_FAMILY_GAP + (i - 1) * (babySize + DUCKLING_GAP))
+  const lags = [1, 2, 3].map((i) => motherWidth + DUCK_FAMILY_GAP + (i - 1) * (babyWidth + DUCKLING_GAP))
   const maxLag = lags[lags.length - 1]
 
-  return sequence(cols + motherSize + 1 + maxLag, (f) => (row, col) => {
-    const motherColOffset = f - motherSize
+  return sequence(cols + motherWidth + 1 + maxLag, (f) => (row, col) => {
+    const motherColOffset = f - motherWidth
     const mRow = row - motherRowOffset
     const mCol = col - motherColOffset
-    if (mRow >= 0 && mRow < motherSize && mCol >= 0 && mCol < motherSize && DUCK_SPRITE[mRow][mCol] === 1) {
+    if (mRow >= 0 && mRow < motherHeight && mCol >= 0 && mCol < motherWidth && motherSprite[mRow][mCol] === 1) {
       return true
     }
     const bRow = row - babyRowOffset
     for (const lag of lags) {
       const bCol = col - (motherColOffset - lag)
-      if (bRow >= 0 && bRow < babySize && bCol >= 0 && bCol < babySize && DUCKLING_SPRITE[bRow][bCol] === 1) {
+      if (bRow >= 0 && bRow < babyHeight && bCol >= 0 && bCol < babyWidth && DUCKLING_SPRITE[bRow][bCol] === 1) {
         return true
       }
     }
@@ -280,14 +348,13 @@ const LOGO_EYES: readonly (readonly [number, number])[] = [
   [(LOGO_HEIGHT - 1) / 2, LOGO_WIDTH - 1 - (LOGO_HEIGHT - 1) / 2],
 ]
 
-const LOGO_FLASH_COUNT = 1
-
-// A single cell races around the outline, then the whole logo flashes once before looping.
+// A single cell races around the outline, then the two eyes light up before looping
+// straight back into the next outline race (no whole-logo flash).
 function microbitLogo(rows: number, cols: number): LitPredicate[] {
   const rowOffset = Math.floor((rows - LOGO_HEIGHT) / 2)
   const colOffset = Math.floor((cols - LOGO_WIDTH) / 2)
   const numOutlineFrames = LOGO_OUTLINE.length
-  const numFrames = numOutlineFrames + LOGO_FLASH_COUNT * 2
+  const numFrames = numOutlineFrames + 1
   return sequence(numFrames, (f) => (row, col) => {
     const r = row - rowOffset
     const c = col - colOffset
@@ -296,15 +363,13 @@ function microbitLogo(rows: number, cols: number): LitPredicate[] {
       const [br, bc] = LOGO_OUTLINE[f]
       return br === r && bc === c
     }
-    if ((f - numOutlineFrames) % 2 !== 0) return false // flash off on odd steps
-    for (const [lr, lc] of LOGO_OUTLINE) if (lr === r && lc === c) return true
     for (const [er, ec] of LOGO_EYES) if (er === r && ec === c) return true
     return false
   })
 }
 
-// Fills outward from the corner like cornerCurve, but each cell's activation time
-// is jittered by a deterministic hash so the edge looks ragged rather than a clean curve.
+// Each cell flashes on for a single frame, with the flash timing jittered outward from the
+// corner by a deterministic hash so the sweep looks ragged rather than a clean curve.
 function cornerScatter(rows: number, cols: number): LitPredicate[] {
   const maxRadius = Math.round(Math.hypot(rows - 1, cols - 1))
   const jitterAmplitude = Math.max(1, Math.round(maxRadius / 4))
@@ -315,7 +380,7 @@ function cornerScatter(rows: number, cols: number): LitPredicate[] {
     return (row, col) => {
       const jitter = (pseudoRandom(row, col) * 2 - 1) * jitterAmplitude
       const activationFrame = clamp(Math.round(Math.hypot(row, col) + jitter), numFrames - 1)
-      return activationFrame <= t
+      return activationFrame === t
     }
   })
 }
