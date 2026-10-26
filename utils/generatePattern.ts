@@ -304,15 +304,10 @@ function duckSwim(rows: number, cols: number, motherSprite: readonly (readonly n
   })
 }
 
-// micro:bit v2 touch logo: a hollow oval shape with two eye dots.
-const LOGO_WIDTH = 17
-const LOGO_HEIGHT = 9
 
 // Traces the oval outline clockwise from the top-left, deduplicating repeated points.
 function buildLogoOutline(width: number, height: number): (readonly [number, number])[] {
   const r = (height - 1) / 2
-  const centreRow = r
-  const leftCapCol = r
   const rightCapCol = width - 1 - r
   const points: (readonly [number, number])[] = []
   const push = (row: number, col: number) => {
@@ -320,19 +315,19 @@ function buildLogoOutline(width: number, height: number): (readonly [number, num
     if (!last || last[0] !== row || last[1] !== col) points.push([row, col])
   }
 
-  for (let col = leftCapCol; col <= rightCapCol; col++) push(0, col)
+  for (let col = r; col <= rightCapCol; col++) push(0, Math.round(col))
 
   const capSteps = Math.max(1, Math.round(r * 8))
   for (let i = 0; i <= capSteps; i++) {
     const angle = (i / capSteps) * Math.PI
-    push(Math.round(centreRow - r * Math.cos(angle)), Math.round(rightCapCol + r * Math.sin(angle)))
+    push(Math.round(r - r * Math.cos(angle)), Math.round(rightCapCol + r * Math.sin(angle)))
   }
 
-  for (let col = rightCapCol; col >= leftCapCol; col--) push(height - 1, col)
+  for (let col = rightCapCol; col >= r; col--) push(height - 1, Math.round(col))
 
   for (let i = 0; i <= capSteps; i++) {
     const angle = Math.PI - (i / capSteps) * Math.PI
-    push(Math.round(centreRow - r * Math.cos(angle)), Math.round(leftCapCol - r * Math.sin(angle)))
+    push(Math.round(r - r * Math.cos(angle)), Math.round(r - r * Math.sin(angle)))
   }
 
   const first = points[0]
@@ -341,29 +336,28 @@ function buildLogoOutline(width: number, height: number): (readonly [number, num
   return points
 }
 
-const LOGO_OUTLINE: readonly (readonly [number, number])[] = buildLogoOutline(LOGO_WIDTH, LOGO_HEIGHT)
-
-const LOGO_EYES: readonly (readonly [number, number])[] = [
-  [(LOGO_HEIGHT - 1) / 2, (LOGO_HEIGHT - 1) / 2],
-  [(LOGO_HEIGHT - 1) / 2, LOGO_WIDTH - 1 - (LOGO_HEIGHT - 1) / 2],
-]
-
 // A single cell races around the outline, then the two eyes light up before looping
-// straight back into the next outline race (no whole-logo flash).
+// straight back into the next outline race.
 function microbitLogo(rows: number, cols: number): LitPredicate[] {
-  const rowOffset = Math.floor((rows - LOGO_HEIGHT) / 2)
-  const colOffset = Math.floor((cols - LOGO_WIDTH) / 2)
-  const numOutlineFrames = LOGO_OUTLINE.length
+  const width = cols - 2
+  const height = rows - 2
+  const outline: readonly (readonly [number, number])[] = buildLogoOutline(width, height)
+  const eyeOffset = Math.round((height - 1) / 2)
+  const eyes: readonly (readonly [number, number])[] = [
+    [eyeOffset, eyeOffset],
+    [eyeOffset, width - 1 - eyeOffset],
+  ]
+  const numOutlineFrames = outline.length
   const numFrames = numOutlineFrames + 1
   return sequence(numFrames, (f) => (row, col) => {
-    const r = row - rowOffset
-    const c = col - colOffset
-    if (r < 0 || r >= LOGO_HEIGHT || c < 0 || c >= LOGO_WIDTH) return false
+    const r = row - 1
+    const c = col - 1
+    if (r < 0 || r >= height || c < 0 || c >= width) return false
     if (f < numOutlineFrames) {
-      const [br, bc] = LOGO_OUTLINE[f]
+      const [br, bc] = outline[f]
       return br === r && bc === c
     }
-    for (const [er, ec] of LOGO_EYES) if (er === r && ec === c) return true
+    for (const [er, ec] of eyes) if (er === r && ec === c) return true
     return false
   })
 }
