@@ -18,6 +18,7 @@ const patternType = ref<PatternType>(DEFAULT_PATTERN)
 const fps = ref<number>(DEFAULT_FPS)
 const isPlaying = ref(false)
 const currentFrameIndex = ref(0)
+const gateway_url = ref<string>("http://127.0.0.1:8080/")
 
 let intervalId: ReturnType<typeof setInterval> | null = null
 
@@ -60,6 +61,14 @@ function stepFrame(delta: number) {
   if (frameCount.value === 0) return
   isPlaying.value = false
   currentFrameIndex.value = (currentFrameIndex.value + delta + frameCount.value) % frameCount.value
+}
+
+async function sendToGateway(){
+  const data = {pattern: framesText.value, rows: rows.value, cols: cols.value}
+  const response = await fetch(gateway_url.value+"set_pattern", {
+          method: "POST",
+          body: JSON.stringify(data)
+      });
 }
 
 // Overwrites the cells textarea with a freshly generated pattern for the
@@ -228,6 +237,28 @@ onUnmounted(() => stopPlayback())
       <p class="text-xs text-slate-500">
         Frame {{ currentFrameIndex + 1 }} / {{ frameCount }}
       </p>
+
+      <div class="flex items-center gap-2 text-sm text-slate-300">
+        <p>Gateway</p>
+      </div>
+      <div class="flex items-center gap-2 text-sm text-slate-300">
+        <input
+          id="gateway_url"
+          v-model.test="gateway_url"
+          type="text"
+          size="50"
+          class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-60 text-slate-100"
+        >
+
+          <button
+          type="button"
+          class="px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium text-sm"
+          @click="sendToGateway"
+        >
+          Send Pattern
+        </button>
+      </div>
+
     </section>
   </div>
 </template>
