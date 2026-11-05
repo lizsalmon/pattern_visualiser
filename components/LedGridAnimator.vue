@@ -2,6 +2,8 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { validateGrid, type ValidationResult } from '~/utils/validateGrid'
 import { generatePattern, PATTERN_OPTIONS, type PatternType } from '~/utils/generatePattern'
+import { setPattern } from '~/utils/gatewayApi'
+import { useGateway, useGatewayAction } from '~/composables/useGateway'
 
 // Outer array = one entry per cell (length rows*cols).
 // Inner array = that cell's value across frames (length num_frames), 0 or 1.
@@ -18,7 +20,9 @@ const patternType = ref<PatternType>(DEFAULT_PATTERN)
 const fps = ref<number>(DEFAULT_FPS)
 const isPlaying = ref(false)
 const currentFrameIndex = ref(0)
-const gateway_url = ref<string>("http://127.0.0.1:8080/")
+const { gatewayUrl } = useGateway()
+const { error: sendError, busy: sending, run } = useGatewayAction()
+const sendStatus = ref<string | null>(null)
 
 let intervalId: ReturnType<typeof setInterval> | null = null
 
@@ -63,12 +67,10 @@ function stepFrame(delta: number) {
   currentFrameIndex.value = (currentFrameIndex.value + delta + frameCount.value) % frameCount.value
 }
 
-async function sendToGateway(){
-  const data = {pattern: framesText.value, rows: rows.value, cols: cols.value}
-  const response = await fetch(gateway_url.value+"set_pattern", {
-          method: "POST",
-          body: JSON.stringify(data)
-      });
+async function sendToGateway() {
+  sendStatus.value = null
+  const ok = await run(() => setPattern(gatewayUrl.value, framesText.value, rows.value, cols.value))
+  if (ok !== undefined) sendStatus.value = 'Pattern sent'
 }
 
 // Overwrites the cells textarea with a freshly generated pattern for the
@@ -238,25 +240,17 @@ onUnmounted(() => stopPlayback())
         Frame {{ currentFrameIndex + 1 }} / {{ frameCount }}
       </p>
 
-      <div class="flex items-center gap-2 text-sm text-slate-300">
-        <p>Gateway</p>
-      </div>
-      <div class="flex items-center gap-2 text-sm text-slate-300">
-        <input
-          id="gateway_url"
-          v-model.test="gateway_url"
-          type="text"
-          size="50"
-          class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-60 text-slate-100"
-        >
-
-          <button
+      <div class="flex items-center gap-3 text-sm text-slate-300">
+        <button
           type="button"
-          class="px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium text-sm"
+          :disabled="sending"
+          class="px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-900 font-medium text-sm disabled:opacity-50"
           @click="sendToGateway"
         >
           Send Pattern
         </button>
+        <span v-if="sendStatus" class="text-emerald-400">{{ sendStatus }}</span>
+        <span v-if="sendError" class="text-red-400">{{ sendError }}</span>
       </div>
 
     </section>
